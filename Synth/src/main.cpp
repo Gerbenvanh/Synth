@@ -28,6 +28,10 @@ int motorPin = 33;
 #include <SD.h>
 #include <SerialFlash.h>
 
+#include "ScreenLCD.h"
+ScreenLCD lcd1(SCL, SDA, 0x27);
+ScreenLCD lcd2(SCL, SDA, 0x26);
+
 #define CHORUS_DELAY_LENGTH (16 * AUDIO_BLOCK_SAMPLES)
 
 short delayline[CHORUS_DELAY_LENGTH];
@@ -76,9 +80,16 @@ AudioConnection patchCord23(mixer4, peak1);
 AudioControlSGTL5000 sgtl5000_1; // xy=255,650
 // GUItool: end automatically generated code
 
+String ctrlWaveFormMsg;
+String inputMsg;
+String filterMsg;
+String effectsMsg;
+
 void setup()
 {
   Serial.begin(9600);
+  lcd1.begin();
+  lcd2.begin();
   AudioMemory(20);
   sgtl5000_1.enable();
   sgtl5000_1.volume(0.52);
@@ -150,41 +161,40 @@ void loop()
   // Left changes the type of control waveform
   if (button0.fallingEdge())
   {
-    Serial.print("Control waveform: ");
     switch (waveform_type)
     {
     case WAVEFORM_SAWTOOTH:
       waveform_type = WAVEFORM_SINE;
-      Serial.println("Sine");
+      ctrlWaveFormMsg = "CTRLWF: Sine";
       break;
     case WAVEFORM_SINE:
       waveform_type = WAVEFORM_SQUARE;
-      Serial.println("Square");
+      ctrlWaveFormMsg = "CTRLWF: Square";
       break;
     case WAVEFORM_SQUARE:
       waveform_type = WAVEFORM_TRIANGLE;
-      Serial.println("Triangle");
+      ctrlWaveFormMsg = "CTRLWF: Triangle";
       break;
     case WAVEFORM_TRIANGLE:
       waveform_type = WAVEFORM_PULSE;
-      Serial.println("Pulse");
+      ctrlWaveFormMsg = "CTRLWF: Pulse";
       break;
     case WAVEFORM_PULSE:
       waveform_type = WAVEFORM_SAWTOOTH;
-      Serial.println("Sawtooth");
+      ctrlWaveFormMsg = "CTRLWF: Sawtooth";
       break;
     default:
-       Serial.println("Left Switch Case");
+      Serial.println("Left Switch Case");
       break;
     }
-   
+    Serial.println(ctrlWaveFormMsg);
+    lcd1.display(ctrlWaveFormMsg, inputMsg);
     waveform1.begin(waveform_type);
   }
 
   // middle button switch which source we hear from mixer1
   if (button1.fallingEdge())
   {
-    Serial.println("Mixer1 button pressed");
     switch (mixer1_setting)
     {
     case 0:
@@ -192,7 +202,7 @@ void loop()
       mixer1.gain(1, 0.0);
       mixer1.gain(2, 0.0);
       mixer1.gain(3, 0.0);
-      Serial.println("Mixer1: Control oscillator");
+      inputMsg = "IN: CTRL Osci";
       mixer1_setting = 1;
       break;
     case 1:
@@ -200,7 +210,7 @@ void loop()
       mixer1.gain(1, 0.75);
       mixer1.gain(2, 0.0);
       mixer1.gain(3, 0.0);
-      Serial.println("Mixer1: Frequency Modulated Oscillator");
+      inputMsg = "IN: Freq Mod Osci";
       mixer1_setting = 2;
       break;
     case 2:
@@ -208,7 +218,7 @@ void loop()
       mixer1.gain(1, 0.0);
       mixer1.gain(2, 0.75);
       mixer1.gain(3, 0.0);
-      Serial.println("Mixer1: Regular Sine Wave Oscillator");
+      inputMsg = "IN: Reg Sine Wave Osci";
       mixer1_setting = 3;
       break;
     case 3:
@@ -216,12 +226,14 @@ void loop()
       mixer1.gain(1, 0.0);
       mixer1.gain(2, 0.0);
       mixer1.gain(3, 0.75);
-      Serial.println("Mixer1: Pink Noise");
+      inputMsg = "IN: Pink Noise";
       mixer1_setting = 0;
       break;
     default:
       break;
     }
+    Serial.println(inputMsg);
+    lcd1.display(ctrlWaveFormMsg, inputMsg);
   }
 
   // Right button activates the envelope
@@ -251,7 +263,7 @@ void loop()
       mixer3.gain(1, 0.0);
       mixer3.gain(2, 0.0);
       mixer3.gain(3, 0.0);
-      Serial.println("Mixer3: No Filter");
+      filterMsg = "Filter: None";
       mixer3_setting = 1;
       break;
     case 1:
@@ -259,7 +271,7 @@ void loop()
       mixer3.gain(1, 0.75);
       mixer3.gain(2, 0.0);
       mixer3.gain(3, 0.0);
-      Serial.println("Mixer3: Low Pass Filter");
+      filterMsg = "Filter: Low Pass";
       mixer3_setting = 2;
       break;
     case 2:
@@ -267,7 +279,7 @@ void loop()
       mixer3.gain(1, 0.0);
       mixer3.gain(2, 0.75);
       mixer3.gain(3, 0.0);
-      Serial.println("Mixer3: Band Pass Filter");
+      filterMsg = "Filter: Band Pass";
       mixer3_setting = 3;
       break;
     case 3:
@@ -275,17 +287,18 @@ void loop()
       mixer3.gain(1, 0.0);
       mixer3.gain(2, 0.0);
       mixer3.gain(3, 0.75);
-      Serial.println("Mixer3: High Pass Filter");
+      filterMsg = "Filter: High Pass";
       mixer3_setting = 0;
       break;
     default:
       break;
     }
+    Serial.println(filterMsg);
+    lcd2.display(filterMsg, inputMsg);
   }
 
   if (button4.fallingEdge())
   {
-    Serial.println("effects button pressed");
     switch (mixer4_setting)
     {
     case 0:
@@ -293,7 +306,7 @@ void loop()
       mixer4.gain(1, 0.0);
       mixer4.gain(2, 0.0);
       mixer4.gain(3, 0.0);
-      Serial.println("mixer4: No effect");
+      effectsMsg = "FX: None";
       mixer4_setting = 1;
       break;
     case 1:
@@ -301,7 +314,7 @@ void loop()
       mixer4.gain(1, 0.75);
       mixer4.gain(2, 0.0);
       mixer4.gain(3, 0.0);
-      Serial.println("mixer4: Fade effect");
+      effectsMsg = "FX: Fade";
       mixer4_setting = 2;
       break;
     case 2:
@@ -309,7 +322,7 @@ void loop()
       mixer4.gain(1, 0.0);
       mixer4.gain(2, 0.75);
       mixer4.gain(3, 0.0);
-      Serial.println("mixer4: Reverb effect");
+      effectsMsg = "FX: Reverb";
       mixer4_setting = 3;
       break;
     case 3:
@@ -317,12 +330,14 @@ void loop()
       mixer4.gain(1, 0.0);
       mixer4.gain(2, 0.0);
       mixer4.gain(3, 0.75);
-      Serial.println("mixer4: Chorus effect");
+      effectsMsg = "FX: Chorus";
       mixer4_setting = 0;
       break;
     default:
       break;
     }
+    Serial.println(effectsMsg);
+    lcd2.display(ctrlWaveFormMsg, effectsMsg);
   }
 
   // after 4 seconds of inactivity, go back to
