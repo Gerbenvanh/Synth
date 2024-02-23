@@ -28,7 +28,7 @@ int motorPin = 33;
 #include <SD.h>
 #include <SerialFlash.h>
 
-#define CHORUS_DELAY_LENGTH (16*AUDIO_BLOCK_SAMPLES)
+#define CHORUS_DELAY_LENGTH (16 * AUDIO_BLOCK_SAMPLES)
 
 short delayline[CHORUS_DELAY_LENGTH];
 int n_chorus = 2;
@@ -45,8 +45,8 @@ AudioMixer4 mixer2;                       // xy=588.9999694824219,577.0000839233
 AudioFilterStateVariable filter1;         // xy=712.1999816894531,599.0000238418579
 AudioMixer4 mixer3;                       // xy=908.1999855041504,547.0000228881836
 AudioEffectChorus chorus1;                // xy=1070.4002227783203,630.2000370025635
-AudioEffectReverb reverb1;                // xy=1072.200210571289,593.2000370025635
 AudioEffectFade fade1;                    // xy=1072.4002838134766,558.200035572052
+AudioEffectFreeverb freeverb1;            // xy=1072.5999298095703,594.2000007629395
 AudioMixer4 mixer4;                       // xy=1239.4000644683838,543.2000350952148
 AudioAnalyzePeak peak1;                   // xy=1442.400047302246,557.2000370025635
 AudioOutputI2S i2s1;                      // xy=1446.4000091552734,520.1999969482422
@@ -64,12 +64,12 @@ AudioConnection patchCord11(filter1, 0, mixer3, 1);
 AudioConnection patchCord12(filter1, 1, mixer3, 2);
 AudioConnection patchCord13(filter1, 2, mixer3, 3);
 AudioConnection patchCord14(mixer3, fade1);
-AudioConnection patchCord15(mixer3, reverb1);
-AudioConnection patchCord16(mixer3, chorus1);
-AudioConnection patchCord17(mixer3, 0, mixer4, 0);
+AudioConnection patchCord15(mixer3, chorus1);
+AudioConnection patchCord16(mixer3, 0, mixer4, 0);
+AudioConnection patchCord17(mixer3, freeverb1);
 AudioConnection patchCord18(chorus1, 0, mixer4, 3);
-AudioConnection patchCord19(reverb1, 0, mixer4, 2);
-AudioConnection patchCord20(fade1, 0, mixer4, 1);
+AudioConnection patchCord19(fade1, 0, mixer4, 1);
+AudioConnection patchCord20(freeverb1, 0, mixer4, 2);
 AudioConnection patchCord21(mixer4, 0, i2s1, 0);
 AudioConnection patchCord22(mixer4, 0, i2s1, 1);
 AudioConnection patchCord23(mixer4, peak1);
@@ -125,7 +125,8 @@ void setup()
   envelope1.release(70);
   fade1.fadeIn(10);
   fade1.fadeOut(20);
-  reverb1.reverbTime(50);
+  freeverb1.roomsize(0.4);
+  freeverb1.damping(0.4);
   chorus1.voices(n_chorus);
 }
 
@@ -173,9 +174,11 @@ void loop()
       Serial.println("Sawtooth");
       break;
     default:
-      Serial.println("Left Switch Case");
-      waveform1.begin(waveform_type);
+       Serial.println("Left Switch Case");
+      break;
     }
+   
+    waveform1.begin(waveform_type);
   }
 
   // middle button switch which source we hear from mixer1
