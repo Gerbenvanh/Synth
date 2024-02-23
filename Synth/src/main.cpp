@@ -403,11 +403,11 @@ void loop()
         {
           if (j > 8)
           {
-            ledMatrix.setLed(0, i, j, matrixShowing[i, j]);
+           // ledMatrix.setLed(0, i, j, matrixShowing[i, j]);
           }
           else
           {
-            ledMatrix.setLed(1, i, j - 8, matrixShowing[i, j]);
+            //ledMatrix.setLed(1, i, j - 8, matrixShowing[i, j]);
           }
         }
       }
