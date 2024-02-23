@@ -7,7 +7,21 @@
 // Part 2-8: Oscillators
 
 #include <Bounce.h>
-#include <iostream>
+
+int button0Pin = 41;
+int button1Pin = 40;
+int button2Pin = 39;
+int button3Pin = 38;
+int button4Pin = 37;
+
+Bounce button0 = Bounce(button0Pin, 15);
+Bounce button1 = Bounce(button1Pin, 15); // 15 = 15 ms debounce time
+Bounce button2 = Bounce(button2Pin, 15);
+Bounce button3 = Bounce(button3Pin, 15);
+Bounce button4 = Bounce(button4Pin, 15);
+
+int motorPin = 33;
+
 #include <Audio.h>
 #include <Wire.h>
 #include <SPI.h>
@@ -15,29 +29,31 @@
 #include <SerialFlash.h>
 
 #include "ScreenLCD.h"
+ScreenLCD lcd1(SCL, SDA, 0x27);
+ScreenLCD lcd2(SCL, SDA, 0x26);
 
-Bounce button0 = Bounce(41, 15);
-Bounce button1 = Bounce(40, 15); // 15 = 15 ms debounce time
-Bounce button2 = Bounce(39, 15);
+#define CHORUS_DELAY_LENGTH (16 * AUDIO_BLOCK_SAMPLES)
 
-int motorPin = 33;
-
-
-ScreenLCD lcd1(SCL,SDA,0x27);
-ScreenLCD lcd2(SCL,SDA,0x26);
-
-
+short delayline[CHORUS_DELAY_LENGTH];
+int n_chorus = 2;
 
 // GUItool: begin automatically generated code
 AudioSynthNoisePink pink1;                // xy=61,598
-AudioSynthWaveform waveform1;             // xy=64,369
+AudioSynthWaveform waveform1;             // xy=65,368.0000057220459
 AudioSynthWaveformSine sine1;             // xy=71,544
-AudioSynthWaveformSineModulated sine_fm1; // xy=146,467
-AudioMixer4 mixer1;                       // xy=327,507
-AudioEffectEnvelope envelope1;            // xy=426,658
-AudioMixer4 mixer2;                       // xy=503,512
-AudioAnalyzePeak peak1;                   // xy=607,611
-AudioOutputI2S i2s1;                      // xy=711,507
+AudioSynthWaveformSineModulated sine_fm1; // xy=146,466.00000673532486
+AudioMixer4 mixer1;                       // xy=326.99999237060547,507.0000071525574
+AudioSynthWaveformModulated waveformMod1; // xy=357.2000045776367,294.9999895095825
+AudioEffectEnvelope envelope1;            // xy=456,577.0000247955322
+AudioMixer4 mixer2;                       // xy=588.9999694824219,577.0000839233398
+AudioFilterStateVariable filter1;         // xy=712.1999816894531,599.0000238418579
+AudioMixer4 mixer3;                       // xy=908.1999855041504,547.0000228881836
+AudioEffectChorus chorus1;                // xy=1070.4002227783203,630.2000370025635
+AudioEffectFade fade1;                    // xy=1072.4002838134766,558.200035572052
+AudioEffectFreeverb freeverb1;            // xy=1072.5999298095703,594.2000007629395
+AudioMixer4 mixer4;                       // xy=1239.4000644683838,543.2000350952148
+AudioAnalyzePeak peak1;                   // xy=1442.400047302246,557.2000370025635
+AudioOutputI2S i2s1;                      // xy=1446.4000091552734,520.1999969482422
 AudioConnection patchCord1(pink1, 0, mixer1, 3);
 AudioConnection patchCord2(waveform1, sine_fm1);
 AudioConnection patchCord3(waveform1, 0, mixer1, 0);
@@ -46,34 +62,52 @@ AudioConnection patchCord5(sine_fm1, 0, mixer1, 1);
 AudioConnection patchCord6(mixer1, 0, mixer2, 0);
 AudioConnection patchCord7(mixer1, envelope1);
 AudioConnection patchCord8(envelope1, 0, mixer2, 1);
-AudioConnection patchCord9(mixer2, 0, i2s1, 0);
-AudioConnection patchCord10(mixer2, 0, i2s1, 1);
-AudioConnection patchCord11(mixer2, peak1);
+AudioConnection patchCord9(mixer2, 0, filter1, 0);
+AudioConnection patchCord10(mixer2, 0, mixer3, 0);
+AudioConnection patchCord11(filter1, 0, mixer3, 1);
+AudioConnection patchCord12(filter1, 1, mixer3, 2);
+AudioConnection patchCord13(filter1, 2, mixer3, 3);
+AudioConnection patchCord14(mixer3, fade1);
+AudioConnection patchCord15(mixer3, chorus1);
+AudioConnection patchCord16(mixer3, 0, mixer4, 0);
+AudioConnection patchCord17(mixer3, freeverb1);
+AudioConnection patchCord18(chorus1, 0, mixer4, 3);
+AudioConnection patchCord19(fade1, 0, mixer4, 1);
+AudioConnection patchCord20(freeverb1, 0, mixer4, 2);
+AudioConnection patchCord21(mixer4, 0, i2s1, 0);
+AudioConnection patchCord22(mixer4, 0, i2s1, 1);
+AudioConnection patchCord23(mixer4, peak1);
 AudioControlSGTL5000 sgtl5000_1; // xy=255,650
 // GUItool: end automatically generated code
+
 String ctrlWaveFormMsg;
-String mixer1Msg;
+String inputMsg;
 String filterMsg;
-String EnvMsg;
-
-
+String effectsMsg;
 
 void setup()
 {
-
   Serial.begin(9600);
   lcd1.begin();
   lcd2.begin();
-  Wire2.begin();
-  Wire1.begin();
   AudioMemory(20);
   sgtl5000_1.enable();
-  sgtl5000_1.volume(0.32);
+  sgtl5000_1.volume(0.52);
 
-  pinMode(41, INPUT_PULLUP);
-  pinMode(40, INPUT_PULLUP);
-  pinMode(39, INPUT_PULLUP);
+  pinMode(button0Pin, INPUT_PULLUP);
+  pinMode(button1Pin, INPUT_PULLUP);
+  pinMode(button2Pin, INPUT_PULLUP);
+  pinMode(button3Pin, INPUT_PULLUP);
+  pinMode(button4Pin, INPUT_PULLUP);
   pinMode(motorPin, OUTPUT);
+
+  if (!chorus1.begin(delayline, CHORUS_DELAY_LENGTH, n_chorus))
+  {
+    Serial.println("AudioEffectChorus begin failed");
+    while (1)
+      ;
+  }
+
   mixer1.gain(0, 0.75);
   mixer1.gain(1, 0.0);
   mixer1.gain(2, 0.0);
@@ -82,6 +116,10 @@ void setup()
   mixer2.gain(1, 0.0);
   mixer2.gain(2, 0.0);
   mixer2.gain(3, 0.0);
+  mixer3.gain(0, 0.75);
+  mixer3.gain(1, 0.0);
+  mixer3.gain(2, 0.0);
+  mixer3.gain(3, 0.0);
   waveform1.begin(WAVEFORM_SAWTOOTH);
   waveform1.amplitude(0.75);
   waveform1.frequency(50);
@@ -96,112 +134,112 @@ void setup()
   envelope1.decay(25);
   envelope1.sustain(0.4);
   envelope1.release(70);
-
-  // LCD
-
+  fade1.fadeIn(10);
+  fade1.fadeOut(20);
+  freeverb1.roomsize(0.4);
+  freeverb1.damping(0.4);
+  chorus1.voices(n_chorus);
 }
 
 int waveform_type = WAVEFORM_SAWTOOTH;
 int mixer1_setting = 0;
 int mixer2_setting = 0;
+int mixer3_setting = 0;
+int mixer4_setting = 0;
 elapsedMillis timeout = 0;
 bool mixer2_envelope = false;
 elapsedMillis msecs;
 
 void loop()
 {
-  
   button0.update();
   button1.update();
   button2.update();
+  button3.update();
+  button4.update();
 
   // Left changes the type of control waveform
   if (button0.fallingEdge())
   {
-    if (waveform_type == WAVEFORM_SAWTOOTH)
+    switch (waveform_type)
     {
-      ctrlWaveFormMsg ="CTRLWF: Sine";
+    case WAVEFORM_SAWTOOTH:
       waveform_type = WAVEFORM_SINE;
-    
-    }
-    else if (waveform_type == WAVEFORM_SINE)
-    {
-      ctrlWaveFormMsg ="CTRLWF: Square";
+      ctrlWaveFormMsg = "CTRLWF: Sine";
+      break;
+    case WAVEFORM_SINE:
       waveform_type = WAVEFORM_SQUARE;
-    
-    }
-    else if (waveform_type == WAVEFORM_SQUARE)
-    {
-      ctrlWaveFormMsg ="CTRLWF: Triangle";
+      ctrlWaveFormMsg = "CTRLWF: Square";
+      break;
+    case WAVEFORM_SQUARE:
       waveform_type = WAVEFORM_TRIANGLE;
-    
-    }
-    else if (waveform_type == WAVEFORM_TRIANGLE)
-    {
-      ctrlWaveFormMsg ="CTRLWF: Pulse";
+      ctrlWaveFormMsg = "CTRLWF: Triangle";
+      break;
+    case WAVEFORM_TRIANGLE:
       waveform_type = WAVEFORM_PULSE;
-    
-    }
-    else if (waveform_type == WAVEFORM_PULSE)
-    {
-      ctrlWaveFormMsg ="CTRLWF: Sawtooth";
+      ctrlWaveFormMsg = "CTRLWF: Pulse";
+      break;
+    case WAVEFORM_PULSE:
       waveform_type = WAVEFORM_SAWTOOTH;
-      
+      ctrlWaveFormMsg = "CTRLWF: Sawtooth";
+      break;
+    default:
+      Serial.println("Left Switch Case");
+      break;
     }
+    Serial.println(ctrlWaveFormMsg);
+    lcd1.display(ctrlWaveFormMsg, inputMsg);
     waveform1.begin(waveform_type);
-    lcd1.display(ctrlWaveFormMsg, mixer1Msg);
   }
+
   // middle button switch which source we hear from mixer1
   if (button1.fallingEdge())
   {
-    Serial.println("button pressed");
-    if (mixer1_setting == 0)
+    switch (mixer1_setting)
     {
+    case 0:
       mixer1.gain(0, 0.75);
       mixer1.gain(1, 0.0);
       mixer1.gain(2, 0.0);
       mixer1.gain(3, 0.0);
-     // Serial.println("IN: Control oscillator");
-      mixer1Msg = "IN: CTRL Osci";
+      inputMsg = "IN: CTRL Osci";
       mixer1_setting = 1;
-    }
-    else if (mixer1_setting == 1)
-    {
+      break;
+    case 1:
       mixer1.gain(0, 0.0);
       mixer1.gain(1, 0.75);
       mixer1.gain(2, 0.0);
       mixer1.gain(3, 0.0);
-      mixer1Msg = "IN: Freq Mod Osci";
+      inputMsg = "IN: Freq Mod Osci";
       mixer1_setting = 2;
-    }
-    else if (mixer1_setting == 2)
-    {
+      break;
+    case 2:
       mixer1.gain(0, 0.0);
       mixer1.gain(1, 0.0);
       mixer1.gain(2, 0.75);
       mixer1.gain(3, 0.0);
-      mixer1Msg = "IN: Reg Sine Wave Osci";
+      inputMsg = "IN: Reg Sine Wave Osci";
       mixer1_setting = 3;
-    }
-    else if (mixer1_setting == 3)
-    {
+      break;
+    case 3:
       mixer1.gain(0, 0.0);
       mixer1.gain(1, 0.0);
       mixer1.gain(2, 0.0);
       mixer1.gain(3, 0.75);
-      mixer1Msg = "IN: Pink Noise";
+      inputMsg = "IN: Pink Noise";
       mixer1_setting = 0;
+      break;
+    default:
+      break;
     }
-    Serial.println(mixer1Msg);
-    lcd1.display(ctrlWaveFormMsg, mixer1Msg);
-
+    Serial.println(inputMsg);
+    lcd1.display(ctrlWaveFormMsg, inputMsg);
   }
 
   // Right button activates the envelope
   if (button2.fallingEdge())
   {
-    lcd2.display("Test", "twoo");
-    Serial.println("button 2 pressed");
+    Serial.println("Envelope note pressed");
     mixer2.gain(0, 0.0);
     mixer2.gain(1, 0.75);
     mixer2_envelope = true;
@@ -214,9 +252,97 @@ void loop()
     timeout = 0;
   }
 
+  // middle button switch which source we hear from mixer1
+  if (button3.fallingEdge())
+  {
+    Serial.println("filter button pressed");
+    switch (mixer3_setting)
+    {
+    case 0:
+      mixer3.gain(0, 0.75);
+      mixer3.gain(1, 0.0);
+      mixer3.gain(2, 0.0);
+      mixer3.gain(3, 0.0);
+      filterMsg = "Filter: None";
+      mixer3_setting = 1;
+      break;
+    case 1:
+      mixer3.gain(0, 0.0);
+      mixer3.gain(1, 0.75);
+      mixer3.gain(2, 0.0);
+      mixer3.gain(3, 0.0);
+      filterMsg = "Filter: Low Pass";
+      mixer3_setting = 2;
+      break;
+    case 2:
+      mixer3.gain(0, 0.0);
+      mixer3.gain(1, 0.0);
+      mixer3.gain(2, 0.75);
+      mixer3.gain(3, 0.0);
+      filterMsg = "Filter: Band Pass";
+      mixer3_setting = 3;
+      break;
+    case 3:
+      mixer3.gain(0, 0.0);
+      mixer3.gain(1, 0.0);
+      mixer3.gain(2, 0.0);
+      mixer3.gain(3, 0.75);
+      filterMsg = "Filter: High Pass";
+      mixer3_setting = 0;
+      break;
+    default:
+      break;
+    }
+    Serial.println(filterMsg);
+    lcd2.display(filterMsg, inputMsg);
+  }
+
+  if (button4.fallingEdge())
+  {
+    switch (mixer4_setting)
+    {
+    case 0:
+      mixer4.gain(0, 0.75);
+      mixer4.gain(1, 0.0);
+      mixer4.gain(2, 0.0);
+      mixer4.gain(3, 0.0);
+      effectsMsg = "FX: None";
+      mixer4_setting = 1;
+      break;
+    case 1:
+      mixer4.gain(0, 0.0);
+      mixer4.gain(1, 0.75);
+      mixer4.gain(2, 0.0);
+      mixer4.gain(3, 0.0);
+      effectsMsg = "FX: Fade";
+      mixer4_setting = 2;
+      break;
+    case 2:
+      mixer4.gain(0, 0.0);
+      mixer4.gain(1, 0.0);
+      mixer4.gain(2, 0.75);
+      mixer4.gain(3, 0.0);
+      effectsMsg = "FX: Reverb";
+      mixer4_setting = 3;
+      break;
+    case 3:
+      mixer4.gain(0, 0.0);
+      mixer4.gain(1, 0.0);
+      mixer4.gain(2, 0.0);
+      mixer4.gain(3, 0.75);
+      effectsMsg = "FX: Chorus";
+      mixer4_setting = 0;
+      break;
+    default:
+      break;
+    }
+    Serial.println(effectsMsg);
+    lcd2.display(ctrlWaveFormMsg, effectsMsg);
+  }
+
   // after 4 seconds of inactivity, go back to
   // steady listening intead of the envelope
-  if (mixer2_envelope == true && timeout > 250)
+  if (mixer2_envelope == true && timeout > 500)
   {
     mixer2.gain(0, 0.75);
     mixer2.gain(1, 0.0);
@@ -225,8 +351,17 @@ void loop()
 
   // use the knobs to adjust parameters
   // float knob1 = (float)analogRead(A1) / 1023.0;
-  float knob2 = (float)analogRead(A12) / 1023.0;
-  float knob3 = (float)analogRead(A13) / 1023.0;
+  float knob2 = (float)analogRead(A10) / 1023.0;
+  float knob3 = (float)analogRead(A11) / 1023.0;
+  float knob4 = (float)analogRead(A12);
+  float knob5 = (float)analogRead(A13);
+
+  float freq = expf((float)knob4 / 150.0) * 10.0 + 80.0;
+  filter1.frequency(freq);
+
+  float reso = map(knob5, 0, 1023, 0.7, 5);
+  filter1.resonance(reso);
+
   if (msecs > 1)
   {
     if (peak1.available())
@@ -241,6 +376,4 @@ void loop()
   waveform1.frequency(360 * knob2 + 0.25);
   sine_fm1.frequency(knob3 * 1500 + 50);
   sine1.frequency(knob3 * 1500 + 50);
-
-
 }
