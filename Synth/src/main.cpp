@@ -14,6 +14,11 @@ int button2Pin = 39;
 int button3Pin = 38;
 int button4Pin = 37;
 
+int MatrixDin = 30;
+int MatrixCLK = 32;
+int MatrixLoad = 31;
+int nrOfMatrix = 2;
+
 Bounce button0 = Bounce(button0Pin, 15);
 Bounce button1 = Bounce(button1Pin, 15); // 15 = 15 ms debounce time
 Bounce button2 = Bounce(button2Pin, 15);
@@ -27,6 +32,7 @@ int motorPin = 33;
 #include <SPI.h>
 #include <SD.h>
 #include <SerialFlash.h>
+#include <LedControl.h>
 
 #include "ScreenLCD.h"
 ScreenLCD lcd1(SCL, SDA, 0x27);
@@ -148,7 +154,12 @@ int mixer3_setting = 0;
 int mixer4_setting = 0;
 elapsedMillis timeout = 0;
 bool mixer2_envelope = false;
-elapsedMillis msecs;
+elapsedMillis msecs1;
+elapsedMillis msecs2;
+int currentMatrixPeak;
+const int matrixRows = 8;
+const int matrixColumns = 16;
+bool matrixShowing[matrixRows][matrixColumns];
 
 void loop()
 {
@@ -362,18 +373,47 @@ void loop()
   float reso = map(knob5, 0, 1023, 0.7, 5);
   filter1.resonance(reso);
 
-  if (msecs > 1)
+  if (msecs1 > 1)
   {
     if (peak1.available())
     {
-      msecs = 0;
+      msecs1 = 0;
       float amplitude = peak1.read();
       int peak = map(amplitude, 0, 1.0, 100, 200);
+      int currentMatrixPeak = map(amplitude, 0, 1.0, 0, 16);
       analogWrite(motorPin, peak);
     }
   }
+  if (msecs2 > 50)
+  {
+    for (size_t i = 7; i >= 0; i--)
+    {
+      for (size_t j = 0; j < 8; j++)
+      {
+        matrixShowing[i + 1][j] = matrixShowing[i][j];
+      }
 
-  waveform1.frequency(360 * knob2 + 0.25);
-  sine_fm1.frequency(knob3 * 1500 + 50);
-  sine1.frequency(knob3 * 1500 + 50);
+      for (size_t i = 0; i < currentMatrixPeak; i++)
+      {
+        matrixShowing[0][i] = true;
+      }
+      for (size_t i = 0; i < matrixRows; i++)
+      {
+        for (size_t j = 0; j < matrixColumns; j++)
+        {
+          if (j > 8)
+          {
+            ledMatrix.setLed(0, i, j, matrixShowing[i, j]);
+          }
+          else
+          {
+            ledMatrix.setLed(1, i, j - 8, matrixShowing[i, j]);
+          }
+        }
+      }
+    }
+    waveform1.frequency(360 * knob2 + 0.25);
+    sine_fm1.frequency(knob3 * 1500 + 50);
+    sine1.frequency(knob3 * 1500 + 50);
+  }
 }
